@@ -1,47 +1,57 @@
-use std::fs::read_to_string;
-
-use chumsky::Parser as ChumskyParser;
+use crate::parser::{Chumsky, Nom, ParserLib};
 use clap::Parser as ClapParser;
-
-use crate::eval::eval;
+use std::fmt::Debug;
 
 mod ast;
 mod eval;
-mod parser_chumsky;
+mod parser;
 
 #[derive(ClapParser, Debug)]
 #[clap(version, about)]
 struct Args {
     #[clap(value_parser)]
     filename: String,
+
+    #[clap(short, long, value_parser)]
+    parser: String,
 }
 
-#[derive(Debug)]
-enum ParserLib {
-    Chumsky,
-}
-
-fn run(lib: ParserLib, src: &str) {
-    let result = match lib {
-        ParserLib::Chumsky => parser_chumsky::parser().parse(src),
-    };
-
-    match result {
-        Ok(ast) => match eval(&ast, &mut Vec::new(), &mut Vec::new()) {
-            Ok(output) => println!("{}", output),
-            Err(eval_err) => println!("Evaluation error: {}", eval_err),
-        },
-        Err(parse_errs) => parse_errs
-            .into_iter()
-            .for_each(|e| println!("Parse error: {}", e)),
+fn determine_parser_lib(s: &str) -> Option<&dyn ParserLib> {
+    match s {
+        "chumsky" => Some(&Chumsky),
+        "nom" => Some(&Nom),
+        _ => None,
     }
-}
-
-fn run_file(lib: ParserLib, filename: &str) {
-    run(lib, &read_to_string(filename).unwrap())
 }
 
 fn main() {
     let args = Args::parse();
-    run_file(ParserLib::Chumsky, &args.filename)
+    let parser = determine_parser_lib(args.filename.as_str());
+    parser
+        .map(|p| p.run_file(&args.filename))
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        ast::Expr,
+        parser::{Chumsky, ParserLib},
+    };
+
+    #[test]
+    fn number() {
+        let src = " 123 ";
+        let result = Chumsky.parse(src);
+        assert_eq!(result.unwrap(), Expr::Num(123.0));
+    }
+
+    fn foo() {
+        let mut s = String::from("zhopa");
+        bar(&mut s);
+    }
+
+    fn bar(s: &mut String) {
+        s.push_str(" meow")
+    }
 }

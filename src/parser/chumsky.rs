@@ -2,6 +2,8 @@ use chumsky::prelude::*;
 
 use crate::ast::Expr;
 
+use super::ParserLib;
+
 /*
 Extension tasks
 
@@ -15,7 +17,17 @@ Extension tasks
   to the original code
 */
 
-pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
+pub struct Chumsky;
+
+impl ParserLib for Chumsky {
+    fn parse(&self, src: &str) -> Result<Expr, Vec<String>> {
+        parser()
+            .parse(src)
+            .map_err(|v| v.iter().map(|err| err.to_string()).collect())
+    }
+}
+
+fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
     let ident = text::ident().padded();
 
     let expr = recursive(|expr| {
